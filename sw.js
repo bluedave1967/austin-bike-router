@@ -1,5 +1,5 @@
 // Caches the app shell so it opens instantly; live bike-lane, street and search data always come from the network.
-const CACHE = 'abr-v1';
+const CACHE = 'abr-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './icon-192.png', './apple-touch-icon.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',

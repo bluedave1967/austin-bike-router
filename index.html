@@ -449,7 +449,7 @@ function renderRoute(){
    <div class="big"><b>${fmtMi(S.tot)}</b><span>about ${fmtMin(S.tot)} at ${MPH} mph</span><span><b style="font-size:16px;color:var(--ok)">${pct(S.onFac)}%</b> on bike facilities</span></div>
    <div class="bar">${bar}</div><div class="keys">${keys}</div>
    <div class="cmp">${cmp}</div>
-   <div class="row"><a class="btn" href="${gm}" target="_blank" rel="noopener">Ride it in Google Maps</a><button class="btn" id="gpxBtn">GPX</button><button class="btn" id="followBtn">Follow me</button></div>
+   <div class="row"><a class="btn primary" href="${appleLink(bc)}" target="_blank" rel="noopener">Ride it in Apple Maps</a><a class="btn" href="${gm}" target="_blank" rel="noopener">Google Maps</a><button class="btn" id="gpxBtn">GPX</button><button class="btn" id="followBtn">Follow me</button></div>
   </div>
   <details open><summary>Turn-by-turn (${dirs.length} steps)</summary><ol class="dir">${dirs.map((d,i)=>`<li data-n="${d.start}"><span class="ic">${i===0?'<span class="dot a"></span>':arrow(d.turn)}</span><span>${esc(d.act)}${d.name?(i===0?' on ':d.act==='Continue'?' on ':' onto ')+'<b>'+esc(d.name)+'</b>':''}<small><i class="sw" style="background:${GROUPS[d.g].k==='busy'?'#d6336c':GROUPS[d.g].color}"></i>${esc(GROUPS[d.g].label)}</small></span><span class="d">${fmtMi(d.d)}</span></li>`).join('')}<li><span class="ic"><span class="dot b"></span></span><span>Arrive at <b>${esc(st.to.label)}</b></span><span></span></li></ol></details>`;
   $('result').querySelectorAll('li[data-n]').forEach(li=>li.onclick=()=>{const n=+li.dataset.n;map.setView([G.lat[n],G.lon[n]],17)});
@@ -457,6 +457,14 @@ function renderRoute(){
   $('followBtn').onclick=follow;
 }
 
+function appleLink(c){
+  // Apple unified Maps URL (iOS 18.4+): cycling mode with the route's shape pinned by waypoints
+  const n=Math.min(6,Math.max(0,Math.floor(c.length/12))); const f=c[0],t=c[c.length-1];
+  const ll=p=>p[0].toFixed(5)+','+p[1].toFixed(5);
+  let u=`https://maps.apple.com/directions?source=${ll(f)}&destination=${ll(t)}&mode=cycling`;
+  for(let i=1;i<=n;i++) u+='&waypoint='+ll(c[Math.round(i*(c.length-1)/(n+1))]);
+  return u;
+}
 function googleLink(c){
   const n=Math.min(8,Math.max(0,Math.floor(c.length/10))); const wp=[];
   for(let i=1;i<=n;i++){const p=c[Math.round(i*(c.length-1)/(n+1))]; wp.push(p[0].toFixed(5)+','+p[1].toFixed(5))}
