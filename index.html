@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bike Router">
+<meta name="theme-color" content="#0b7a3e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Austin Bike Router</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --ink:#15202b; --mute:#5c6b78; --line:#e3e8ec; --soft:#f3f6f8;
+  --accent:#d6336c; --route:#d6336c; --ok:#0b7a3e;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161b21;--ink:#e9eef2;--mute:#9aa8b4;--line:#2b333c;--soft:#1f262d}
+}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,sans-serif}
+#map{position:fixed;inset:0}
+.panel{position:fixed;z-index:1000;background:var(--bg);box-shadow:0 8px 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
+@media (min-width:760px){.panel{top:14px;left:14px;bottom:14px;width:390px;border-radius:16px}}
+@media (max-width:759px){.panel{left:0;right:0;bottom:0;max-height:62vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+  .panel.collapsed .body{display:none}}
+.head{padding:12px 16px 8px;display:flex;align-items:center;gap:10px;cursor:default}
+.head h1{font-size:19px;margin:0;flex:1;letter-spacing:-.2px}
+.grip{display:none}
+@media (max-width:759px){.grip{display:block;position:absolute;top:6px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:var(--line)}.head{padding-top:18px;cursor:pointer}}
+.body{overflow-y:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch}
+.status{font-size:13px;color:var(--mute);padding:0 16px 8px}
+.field{position:relative;display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.dot.a{background:#0b7a3e}.dot.b{background:var(--accent)}
+.field input{flex:1;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink)}
+.field input:focus{outline:2px solid #3c78d8;outline-offset:0}
+.ib{flex:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ib.on{background:#3c78d8;color:#fff;border-color:#3c78d8}
+.ib svg{width:20px;height:20px}
+.sugg{position:absolute;top:44px;left:18px;right:46px;z-index:5;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden;display:none}
+.sugg div{padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--line)}
+.sugg div:last-child{border:0}.sugg div:hover,.sugg div.act{background:var(--soft)}
+.sugg small{color:var(--mute);display:block}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.btn{font:inherit;font-size:15px;font-weight:700;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;min-height:44px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;flex:1;justify-content:center}
+.btn:disabled{opacity:.5}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.big{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
+.big b{font-size:28px;letter-spacing:-.5px}
+.big span{color:var(--mute);font-size:14px}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:10px 0 6px;background:var(--soft)}
+.bar i{display:block;height:100%}
+.keys{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--mute)}
+.keys span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.cmp{font-size:13px;color:var(--mute);margin-top:6px}
+details{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+summary{font-weight:700;cursor:pointer;padding:8px 0;min-height:40px;display:flex;align-items:center}
+.pref{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.pref .lab{display:flex;align-items:center;gap:8px;font-size:14px}
+.pref .lab .sw{width:22px;height:5px;border-radius:3px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:12px;padding:7px 7px;border:0;background:var(--bg);color:var(--mute);cursor:pointer;min-width:44px}
+.seg button.on{background:var(--ink);color:var(--bg);font-weight:700}
+.slider{margin:12px 0 4px}
+.slider input{width:100%}
+.slider .ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mute)}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;padding:6px 0;min-height:40px}
+.chk input{width:20px;height:20px}
+ol.dir{list-style:none;padding:0;margin:0}
+ol.dir li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;align-items:start;cursor:pointer}
+ol.dir li .ic{width:28px;height:28px;border-radius:50%;background:var(--soft);display:grid;place-items:center}
+ol.dir li .ic svg{width:16px;height:16px}
+ol.dir li small{color:var(--mute);display:flex;gap:5px;align-items:center}
+ol.dir li .d{white-space:nowrap;color:var(--mute)}
+.foot{font-size:11px;color:var(--mute);margin-top:12px}
+.foot a{color:inherit}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hint{position:fixed;z-index:1001;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:20px;font-size:14px;display:none;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.leaflet-popup-content{font:14px/1.4 "Atkinson Hyperlegible",system-ui,sans-serif}
+.leaflet-top.leaflet-right{top:env(safe-area-inset-top);right:env(safe-area-inset-right)}
+@media (min-width:760px){.panel{top:calc(14px + env(safe-area-inset-top))}}
+.me{width:18px;height:18px;border-radius:50%;background:#2b7bf0;border:3px solid #fff;box-shadow:0 0 0 6px rgba(43,123,240,.25)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="hint" id="hint"></div>
+
+<div class="panel" id="panel">
+  <div class="grip"></div>
+  <div class="head" id="head"><h1>Austin Bike Router</h1></div>
+  <div class="status" id="status"><span class="spin"></span>Loading Austin's bike network…</div>
+  <div class="body">
+    <div class="field">
+      <span class="dot a"></span>
+      <input id="from" placeholder="Start: address, place, or tap the map" autocomplete="off" enterkeyhint="next">
+      <button class="ib" id="locBtn" title="Use my location" aria-label="Use my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+      <div class="sugg" id="fromS"></div>
+    </div>
+    <div class="field">
+      <span class="dot b"></span>
+      <input id="to" placeholder="Destination" autocomplete="off" enterkeyhint="go">
+      <button class="ib" id="swapBtn" title="Swap start and destination" aria-label="Swap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg></button>
+      <div class="sugg" id="toS"></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="goBtn" disabled>Find bike route</button>
+    </div>
+
+    <div id="result"></div>
+
+    <details id="prefsBox">
+      <summary>Route preferences</summary>
+      <div id="prefs"></div>
+      <div class="slider">
+        <label for="tol" style="font-size:14px;font-weight:700">How far out of your way will you go?</label>
+        <input type="range" id="tol" min="0" max="1.6" step="0.1" value="1">
+        <div class="ends"><span>Shortest route</span><span>Best bike lanes</span></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="useComfort" checked> Also weigh the City's "level of comfort" rating</label>
+      <label class="chk"><input type="checkbox" id="showNet" checked> Show the bike network on the map</label>
+    </details>
+
+    <div class="foot">
+      Bike lanes: <a href="https://data.austintexas.gov/d/23hw-a95n" target="_blank" rel="noopener">City of Austin Bicycle Facilities</a> (live).
+      Streets &amp; trails: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors. Search: Photon. Tiles: CARTO.
+      Always ride with your own judgment; data can lag construction.
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+{
+/* ---------------- Config ---------------- */
+const FAC_URL='https://services.arcgis.com/0L95CJ0VTaxqcmED/arcgis/rest/services/TRANSPORTATION_bicycle_facilities/FeatureServer/0/query';
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const AUSTIN=[30.2672,-97.7431];
+const LAT0=30.27, LON0=-97.74, KX=111320*Math.cos(LAT0*Math.PI/180), KY=110574;
+const MPH=10; // assumed average riding speed
+
+// Groups of the City's 17 facility types
+const GROUPS=[
+ {k:'protected',label:'Protected lanes & bike bridges',color:'#0b7a3e',def:3,types:['Bike Lane - Protected One-Way','Bike Lane - Protected Two-Way','Bridge']},
+ {k:'trail',label:'Paved trails',color:'#14a1a8',def:3,types:['Trail - Paved']},
+ {k:'buffered',label:'Buffered / painted lanes',color:'#2f6fe0',def:2,types:['Bike Lane - Buffered','Bike Lane - Colored']},
+ {k:'lane',label:'Standard bike lanes',color:'#8fb4f5',def:2,types:['Bike Lane','Bike Lane - Climbing','Bike Lane - Contraflow','Bike Lane - wParking']},
+ {k:'neighborhood',label:'Neighborhood bikeways',color:'#8e5bd0',def:2,types:['Neighborhood Bikeway']},
+ {k:'shared',label:'Shared lanes, sharrows & shoulders',color:'#e8912a',def:1,types:['Shared Lane','Sharrows','Wide Curb Lane','Wide Shoulder','Shoulder']},
+ {k:'unpaved',label:'Unpaved trails',color:'#8a6a3b',def:1,types:['Trail - Unpaved']},
+ {k:'quiet',label:'Quiet streets, no bike facility',color:'#64717d',def:1,types:[],nofac:true},
+ {k:'busy',label:'Busy roads, no bike facility',color:'#d6336c',def:0,types:[],nofac:true},
+];
+const GI={};GROUPS.forEach((g,i)=>GI[g.k]=i);
+const TYPE2G={};GROUPS.forEach((g,i)=>g.types.forEach(t=>TYPE2G[t]=i));
+const LEVELS=['Avoid','OK','Prefer','Love'];
+const LEVEL_F=[2.3,1.0,0.72,0.5];
+const COMFORT_F={H:0.92,HP:0.92,HU:1,M:1,RT:1.1,SS:1.05,TC:1,L:1.2,EL:1.45};
+const COMFORT_NAME={H:'High',HP:'High (paved)',HU:'High (unpaved)',M:'Medium',RT:'Rough trail',SS:'Helpful sidewalk',TC:'Minor trail',L:'Low',EL:'Extremely low'};
+
+/* ---------------- State ---------------- */
+let prefs=GROUPS.map(g=>g.def), tol=1, useComfort=true;
+try{const s=JSON.parse(localStorage.getItem('abr-prefs')||'null');if(s&&s.p&&s.p.length===GROUPS.length){prefs=s.p;tol=s.t;useComfort=s.c}}catch(e){}
+const st={from:null,to:null,fac:null,facSegs:null,grid:null,graph:null,graphBox:null,route:null,pick:null};
+
+/* ---------------- Map ---------------- */
+const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+const map=L.map('map',{zoomControl:false,preferCanvas:true}).setView(AUSTIN,13);
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+const netRenderer=L.canvas({padding:.5});
+const netLayer=L.layerGroup().addTo(map);
+const routeLayer=L.layerGroup().addTo(map);
+const icon=c=>L.divIcon({className:'',html:`<div style="width:22px;height:22px;border-radius:50%;background:${c};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>`,iconSize:[22,22],iconAnchor:[11,11]});
+const mk={from:null,to:null};
+
+const $=id=>document.getElementById(id);
+const status=(h,spin)=>{$('status').innerHTML=(spin?'<span class="spin"></span>':'')+h};
+const hint=t=>{const h=$('hint');if(!t){h.style.display='none';return}h.textContent=t;h.style.display='block'};
+const fmtMi=m=>{const mi=m/1609.34;return mi<0.1?Math.round(m*3.281/10)*10+' ft':mi.toFixed(mi<10?1:0)+' mi'};
+const fmtMin=m=>{const min=Math.round(m/1609.34/MPH*60);return min<60?min+' min':Math.floor(min/60)+' h '+(min%60)+' min'};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const proj=(lat,lon)=>[(lon-LON0)*KX,(lat-LAT0)*KY];
+
+/* ---------------- Load City bike facilities ---------------- */
+async function loadFacilities(){
+  const base=`${FAC_URL}?where=1%3D1&outFields=BICYCLE_FACILITY,BIKE_LEVEL_OF_COMFORT,FULL_STREET_NAME,LINE_TYPE&outSR=4326&geometryPrecision=6&f=geojson`;
+  const cnt=await (await fetch(`${FAC_URL}?where=1%3D1&returnCountOnly=true&f=json`)).json();
+  const total=cnt.count||0, page=2000, pages=Math.ceil(total/page);
+  let done=0; const feats=[];
+  status(`Loading Austin's bike network… 0 of ${total.toLocaleString()} segments`,1);
+  const jobs=[];
+  for(let p=0;p<pages;p++) jobs.push((async()=>{
+    for(let tries=0;tries<3;tries++){
+      try{const r=await fetch(`${base}&orderByFields=OBJECTID&resultOffset=${p*page}&resultRecordCount=${page}`);
+        const j=await r.json(); if(!j.features) throw 0;
+        feats.push(...j.features); done+=j.features.length;
+        status(`Loading Austin's bike network… ${done.toLocaleString()} of ${total.toLocaleString()} segments`,1); return;
+      }catch(e){await new Promise(r=>setTimeout(r,800))}
+    }
+  })());
+  await Promise.all(jobs);
+  return feats;
+}
+
+function indexFacilities(feats){
+  const segs=[]; const grid=new Map(); const C=25;
+  feats.forEach((f,fi)=>{
+    const p=f.properties||{}; const g=TYPE2G[p.BICYCLE_FACILITY]; if(g===undefined||!f.geometry) return;
+    p._g=g;
+    const lines=f.geometry.type==='LineString'?[f.geometry.coordinates]:f.geometry.type==='MultiLineString'?f.geometry.coordinates:[];
+    lines.forEach(ln=>{for(let i=0;i<ln.length-1;i++){
+      const [x1,y1]=proj(ln[i][1],ln[i][0]),[x2,y2]=proj(ln[i+1][1],ln[i+1][0]);
+      const si=segs.length; segs.push([x1,y1,x2,y2,fi]);
+      const pad=16;
+      for(let gx=Math.floor((Math.min(x1,x2)-pad)/C);gx<=Math.floor((Math.max(x1,x2)+pad)/C);gx++)
+        for(let gy=Math.floor((Math.min(y1,y2)-pad)/C);gy<=Math.floor((Math.max(y1,y2)+pad)/C);gy++){
+          const key=gx*100003+gy; let a=grid.get(key); if(!a)grid.set(key,a=[]); a.push(si);
+        }
+    }});
+  });
+  return {segs,grid,C};
+}
+
+function drawNetwork(){
+  netLayer.clearLayers();
+  if(!$('showNet').checked||!st.fac) return;
+  const order=[...GROUPS.keys()].reverse();
+  for(const gi of order){
+    const g=GROUPS[gi]; if(g.nofac) continue;
+    st.fac.forEach(f=>{
+      if(f.properties._g!==gi) return;
+      const gj=f.geometry; const lines=gj.type==='LineString'?[gj.coordinates]:gj.coordinates;
+      const l=L.polyline(lines.map(ln=>ln.map(c=>[c[1],c[0]])),{renderer:netRenderer,color:g.color,weight:gi<2?3.5:2.6,opacity:prefs[gi]===0?.35:.9,dashArray:g.k==='unpaved'?'4 4':null});
+      l.bindPopup(()=>{const p=f.properties;return `<b>${esc(p.BICYCLE_FACILITY)}</b><br>${esc(p.FULL_STREET_NAME||'')}<br><span style="color:#5c6b78">Comfort: ${esc(COMFORT_NAME[p.BIKE_LEVEL_OF_COMFORT]||p.BIKE_LEVEL_OF_COMFORT||'n/a')}</span>`});
+      l.addTo(netLayer);
+    });
+  }
+}
+
+/* ---------------- Street graph from OpenStreetMap ---------------- */
+async function overpass(box){
+  const b=`${box.s},${box.w},${box.n},${box.e}`;
+  const q=`[out:json][timeout:90];(
+ way["highway"~"^(primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|cycleway|path|track|trunk|trunk_link|road)$"]["access"!~"^(private|no)$"]["bicycle"!~"^(no|dismount)$"]["service"!~"^(parking_aisle|driveway|drive-through|emergency_access)$"](${b});
+ way["highway"~"^(footway|pedestrian|bridleway)$"]["bicycle"~"^(yes|designated|permissive)$"](${b});
+);out geom;`;
+  let err;
+  for(const u of OVERPASS){
+    try{const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      if(!r.ok) throw new Error('HTTP '+r.status); return await r.json();}catch(e){err=e}
+  }
+  throw err;
+}
+
+function classify(t){
+  const h=t.highway, surf=t.surface||'';
+  const unpaved=/^(dirt|gravel|ground|unpaved|fine_gravel|compacted|grass|sand|mud|earth|pebblestone|woodchips)$/.test(surf);
+  let osmG=-1, busy=0;
+  if(h==='cycleway') osmG=unpaved?GI.unpaved:GI.trail;
+  else if(h==='path'||h==='footway'||h==='pedestrian'||h==='bridleway') osmG=(unpaved||(!surf&&h==='path'&&t.bicycle!=='designated'))?GI.unpaved:GI.trail;
+  else if(h==='track') osmG=GI.unpaved;
+  else {
+    const cw=[t.cycleway,t['cycleway:right'],t['cycleway:left'],t['cycleway:both']].join(' ');
+    if(/track|separate/.test(cw)) osmG=GI.protected;
+    else if(/lane/.test(cw)&&!/shared_lane/.test(cw)) osmG=GI.lane;
+    else if(/shared_lane|share_busway/.test(cw)) osmG=GI.shared;
+    if(/^(primary|primary_link)$/.test(h)) busy=1.6;
+    else if(/^(secondary|secondary_link)$/.test(h)) busy=1.3;
+    else if(/^(tertiary|tertiary_link)$/.test(h)) busy=1.0;
+    else if(/^(trunk|trunk_link)$/.test(h)) busy=2.2;
+  }
+  let ow=0;
+  if(!/^(cycleway|path|footway|pedestrian|track|bridleway)$/.test(h)&&t['oneway:bicycle']!=='no'&&!/opposite/.test(t.cycleway||'')){
+    if(/^(yes|1|true)$/.test(t.oneway||'')||t.junction==='roundabout') ow=1; else if(t.oneway==='-1') ow=-1;
+  }
+  return {osmG,busy,ow,name:t.name||t.ref||''};
+}
+
+function matchFacility(x1,y1,x2,y2,len){
+  const {segs,grid,C}=st.facIdx; const k=Math.max(1,Math.min(5,Math.ceil(len/20)));
+  const ex=x2-x1, ey=y2-y1, el=Math.hypot(ex,ey)||1;
+  const votes=new Map();
+  for(let s=0;s<k;s++){
+    const f=(s+.5)/k, px=x1+ex*f, py=y1+ey*f;
+    const cx=Math.floor(px/C), cy=Math.floor(py/C);
+    const cand=grid.get(cx*100003+cy); if(!cand) continue;
+    let best=-1,bd=14;
+    for(const si of cand){
+      const g=segs[si]; const dx=g[2]-g[0], dy=g[3]-g[1], l2=dx*dx+dy*dy||1;
+      let u=((px-g[0])*dx+(py-g[1])*dy)/l2; u=u<0?0:u>1?1:u;
+      const d=Math.hypot(px-(g[0]+u*dx),py-(g[1]+u*dy)); if(d>=bd) continue;
+      const cos=Math.abs((ex*dx+ey*dy)/(el*Math.sqrt(l2))); if(cos<0.82) continue; // ~35°
+      bd=d; best=g[4];
+    }
+    if(best>=0) votes.set(best,(votes.get(best)||0)+1);
+  }
+  let bf=-1,bv=0; votes.forEach((v,f)=>{if(v>bv){bv=v;bf=f}});
+  return bv>=Math.ceil(k/2)?bf:-1;
+}
+
+function buildGraph(osm){
+  const id2i=new Map(), lat=[], lon=[], X=[], Y=[], adj=[], E=[];
+  const node=(id,la,lo)=>{let i=id2i.get(id); if(i===undefined){i=lat.length;id2i.set(id,i);lat.push(la);lon.push(lo);const p=proj(la,lo);X.push(p[0]);Y.push(p[1]);adj.push([])} return i};
+  for(const w of osm.elements){
+    if(w.type!=='way'||!w.geometry||!w.nodes) continue;
+    const c=classify(w.tags||{});
+    for(let i=0;i<w.nodes.length-1;i++){
+      const g1=w.geometry[i], g2=w.geometry[i+1]; if(!g1||!g2) continue;
+      const a=node(w.nodes[i],g1.lat,g1.lon), b=node(w.nodes[i+1],g2.lat,g2.lon);
+      const len=Math.hypot(X[b]-X[a],Y[b]-Y[a]); if(len<0.01) continue;
+      const fi=matchFacility(X[a],Y[a],X[b],Y[b],len);
+      let g=c.osmG, com='', fname='', ow=c.ow;
+      if(fi>=0){const p=st.fac[fi].properties; g=p._g; com=p.BIKE_LEVEL_OF_COMFORT||''; fname=p.FULL_STREET_NAME||''; if(p.BICYCLE_FACILITY==='Bike Lane - Contraflow'||p.BICYCLE_FACILITY==='Bike Lane - Protected Two-Way') ow=0;}
+      if(g<0) g=c.busy?GI.busy:GI.quiet;
+      const ei=E.length; E.push({a,b,len,g,com,busy:c.busy,ow,name:c.name||titleCase(fname),city:fi>=0});
+      if(ow!==-1) adj[a].push(ei*2);      // a->b
+      if(ow!==1) adj[b].push(ei*2+1);     // b->a
+    }
+  }
+  // largest connected component (undirected) so we never snap to an island
+  const comp=new Int32Array(lat.length).fill(-1); let bestC=-1,bestN=0,cid=0;
+  const und=Array.from({length:lat.length},()=>[]); E.forEach(e=>{und[e.a].push(e.b);und[e.b].push(e.a)});
+  for(let s=0;s<lat.length;s++){ if(comp[s]>=0) continue; let n=0; const q=[s]; comp[s]=cid;
+    while(q.length){const v=q.pop();n++;for(const u of und[v]) if(comp[u]<0){comp[u]=cid;q.push(u)}}
+    if(n>bestN){bestN=n;bestC=cid} cid++; }
+  const ngrid=new Map(); for(let i=0;i<lat.length;i++){ if(comp[i]!==bestC) continue; const k=Math.floor(X[i]/150)*100003+Math.floor(Y[i]/150); let a=ngrid.get(k); if(!a)ngrid.set(k,a=[]); a.push(i)}
+  return {lat,lon,X,Y,adj,E,ngrid};
+}
+function titleCase(s){return s?s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace(/\b(Ih|Us|Fm|Rm|Sh)\b/g,m=>m.toUpperCase()):''}
+
+function nearestNode(G,lat,lon){
+  const [x,y]=proj(lat,lon), cx=Math.floor(x/150), cy=Math.floor(y/150); let best=-1,bd=Infinity;
+  for(let r=0;r<8&&best<0;r++) for(let i=-r;i<=r;i++) for(let j=-r;j<=r;j++){
+    if(Math.max(Math.abs(i),Math.abs(j))!==r) continue;
+    const a=G.ngrid.get((cx+i)*100003+cy+j); if(!a) continue;
+    for(const n of a){const d=Math.hypot(G.X[n]-x,G.Y[n]-y); if(d<bd){bd=d;best=n}}
+  }
+  return best;
+}
+
+/* ---------------- Routing (A*) ---------------- */
+function factorFn(t){
+  const lf=GROUPS.map((g,i)=>LEVEL_F[prefs[i]]);
+  return e=>{let f=lf[e.g]; if(e.g===GI.busy) f*=e.busy||1; if(useComfort&&e.com&&COMFORT_F[e.com]) f*=COMFORT_F[e.com];
+    return Math.max(0.2,1+t*(f-1));};
+}
+function astar(G,s,goal,t){
+  const fac=factorFn(t); const n=G.lat.length;
+  let minF=1; for(let i=0;i<GROUPS.length;i++) minF=Math.min(minF,Math.max(0.2,1+t*(LEVEL_F[prefs[i]]*(useComfort?0.92:1)-1)));
+  const dist=new Float64Array(n).fill(Infinity), prev=new Int32Array(n).fill(-1), done=new Uint8Array(n);
+  const hx=G.X[goal], hy=G.Y[goal], h=v=>Math.hypot(G.X[v]-hx,G.Y[v]-hy)*minF;
+  const hk=[],hv=[];
+  const push=(k,v)=>{let i=hk.length;hk.push(k);hv.push(v);while(i>0){const p=(i-1)>>1;if(hk[p]<=k)break;hk[i]=hk[p];hv[i]=hv[p];i=p}hk[i]=k;hv[i]=v};
+  const pop=()=>{const v=hv[0],lk=hk.pop(),lv=hv.pop();if(hk.length){let i=0;const L2=hk.length;while(true){let c=2*i+1;if(c>=L2)break;if(c+1<L2&&hk[c+1]<hk[c])c++;if(hk[c]>=lk)break;hk[i]=hk[c];hv[i]=hv[c];i=c}hk[i]=lk;hv[i]=lv}return v};
+  dist[s]=0; push(h(s),s);
+  while(hk.length){
+    const v=pop(); if(done[v]) continue; done[v]=1; if(v===goal) break;
+    for(const code of G.adj[v]){const e=G.E[code>>1]; const u=(code&1)?e.a:e.b; if(done[u]) continue;
+      const nd=dist[v]+e.len*fac(e); if(nd<dist[u]){dist[u]=nd;prev[u]=code;push(nd+h(u),u)}}
+  }
+  if(!done[goal]) return null;
+  const steps=[]; let v=goal; while(v!==s){const code=prev[v]; const e=G.E[code>>1]; const rev=code&1; steps.push({e,rev}); v=rev?e.b:e.a}
+  return steps.reverse();
+}
+
+/* ---------------- Route orchestration ---------------- */
+function boxFor(a,b){
+  const pad=Math.max(0.012,0.25*Math.max(Math.abs(a.lat-b.lat),Math.abs(a.lon-b.lon)));
+  return {s:Math.min(a.lat,b.lat)-pad,n:Math.max(a.lat,b.lat)+pad,w:Math.min(a.lon,b.lon)-pad*1.15,e:Math.max(a.lon,b.lon)+pad*1.15};
+}
+const inside=(o,i)=>o&&i.s>=o.s&&i.n<=o.n&&i.w>=o.w&&i.e<=o.e;
+
+async function route(){
+  if(!st.from||!st.to) return;
+  if(!st.facIdx){status('Still loading the bike network — one moment…',1);return}
+  const box=boxFor(st.from,st.to);
+  if((box.n-box.s)>0.5||(box.e-box.w)>0.6){status('That trip is too long for this app — try something within the Austin area.');return}
+  $('goBtn').disabled=true;
+  try{
+    if(!inside(st.graphBox,box)){
+      status('Loading streets and trails for this area…',1);
+      const osm=await overpass(box);
+      status('Matching streets to the City bike lanes…',1);
+      await new Promise(r=>setTimeout(r,20));
+      st.graph=buildGraph(osm); st.graphBox=box;
+    }
+    const G=st.graph, s=nearestNode(G,st.from.lat,st.from.lon), g=nearestNode(G,st.to.lat,st.to.lon);
+    if(s<0||g<0){status('Couldn\'t find a street near one of your points.');return}
+    status('Finding your route…',1); await new Promise(r=>setTimeout(r,10));
+    const best=astar(G,s,g,tol), short=astar(G,s,g,0);
+    if(!best){status('No bikeable route found between those points.');return}
+    st.route={best,short,G}; renderRoute(); status('Route ready. Change preferences to re-route instantly.');
+  }catch(e){console.error(e);status('Couldn\'t load street data (the free OpenStreetMap server may be busy). Try again in a minute.')}
+  finally{$('goBtn').disabled=!(st.from&&st.to)}
+}
+
+function pathCoords(G,steps){const c=[];steps.forEach((s,i)=>{const a=s.rev?s.e.b:s.e.a,b=s.rev?s.e.a:s.e.b;if(i===0)c.push([G.lat[a],G.lon[a]]);c.push([G.lat[b],G.lon[b]])});return c}
+function stats(steps){const by=GROUPS.map(()=>0);let tot=0;steps.forEach(s=>{by[s.e.g]+=s.e.len;tot+=s.e.len});const onFac=by.reduce((a,v,i)=>a+(GROUPS[i].nofac?0:v),0);return{by,tot,onFac}}
+function bearing(G,a,b){return Math.atan2(G.X[b]-G.X[a],G.Y[b]-G.Y[a])*180/Math.PI}
+
+function directions(G,steps){
+  const out=[];
+  for(const s of steps){const a=s.rev?s.e.b:s.e.a,b=s.rev?s.e.a:s.e.b; const name=s.e.name||(GROUPS[s.e.g].k==='trail'||GROUPS[s.e.g].k==='unpaved'?'trail':'');
+    const br=bearing(G,a,b); const last=out[out.length-1];
+    if(last&&last.name===name&&last.g===s.e.g){last.d+=s.e.len;last.endB=br;last.end=b}
+    else out.push({name,g:s.e.g,d:s.e.len,startB:br,endB:br,start:a,end:b});
+  }
+  // fold tiny unnamed connectors into neighbours
+  const m=[]; for(const x of out){const p=m[m.length-1]; if(p&&(x.d<35&&!x.name||(x.name===p.name&&x.d<35))){p.d+=x.d;p.endB=x.endB;p.end=x.end}else m.push(x)}
+  const m2=[]; for(const x of m){const p=m2[m2.length-1]; if(p&&p.name===x.name&&p.g===x.g){p.d+=x.d;p.endB=x.endB;p.end=x.end}else m2.push(x)}
+  m2.forEach((x,i)=>{
+    if(i===0){x.act='Start';x.turn=0;return}
+    let d=x.startB-m2[i-1].endB; while(d>180)d-=360; while(d<-180)d+=360;
+    const side=d>0?'right':'left', ad=Math.abs(d);
+    x.turn=d; x.act=ad<20?'Continue':ad<55?'Bear '+side:ad<150?'Turn '+side:'Make a U-turn';
+  });
+  return m2;
+}
+const arrow=t=>{const r=Math.max(-150,Math.min(150,t));return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="transform:rotate(${r}deg)"><path d="M12 20V5M6 11l6-6 6 6"/></svg>`};
+
+function renderRoute(){
+  const {best,short,G}=st.route; routeLayer.clearLayers();
+  const sc=pathCoords(G,short), bc=pathCoords(G,best);
+  L.polyline(sc,{color:'#7b8794',weight:4,opacity:.7,dashArray:'6 8'}).bindTooltip('Shortest route').addTo(routeLayer);
+  L.polyline(bc,{color:'#fff',weight:10,opacity:.95}).addTo(routeLayer);
+  // colour route by facility group
+  let run=[],rg=null; const flush=()=>{if(run.length>1)L.polyline(run,{color:GROUPS[rg].k==='busy'?'#d6336c':GROUPS[rg].color,weight:6,opacity:1}).addTo(routeLayer)};
+  best.forEach(s=>{const a=s.rev?s.e.b:s.e.a,b=s.rev?s.e.a:s.e.b; if(s.e.g!==rg){flush();run=[[G.lat[a],G.lon[a]]];rg=s.e.g} run.push([G.lat[b],G.lon[b]])}); flush();
+  map.fitBounds(L.latLngBounds(bc),{maxZoom:17,paddingTopLeft:innerWidth>=760?[420,40]:[30,40],paddingBottomRight:innerWidth>=760?[40,40]:[30,innerHeight*0.5]});
+
+  const S=stats(best), SS=stats(short), dirs=directions(G,best);
+  const pct=v=>Math.round(100*v/S.tot);
+  const bar=GROUPS.map((g,i)=>S.by[i]>0?`<i style="width:${100*S.by[i]/S.tot}%;background:${g.nofac&&g.k==='busy'?'#d6336c':g.color}" title="${esc(g.label)}"></i>`:'').join('');
+  const keys=GROUPS.map((g,i)=>S.by[i]>0?`<span><i class="sw" style="background:${g.k==='busy'?'#d6336c':g.color}"></i>${esc(g.label.split(',')[0])} ${pct(S.by[i])}%</span>`:'').join('');
+  const extra=S.tot-SS.tot;
+  const cmp=extra<30?'This is also the shortest route.':`${fmtMi(extra)} longer than the shortest route (gray dashes), which uses bike facilities for only ${Math.round(100*SS.onFac/SS.tot)}% of the way.`;
+  const gm=googleLink(bc);
+  $('result').innerHTML=`<div class="card">
+   <div class="big"><b>${fmtMi(S.tot)}</b><span>about ${fmtMin(S.tot)} at ${MPH} mph</span><span><b style="font-size:16px;color:var(--ok)">${pct(S.onFac)}%</b> on bike facilities</span></div>
+   <div class="bar">${bar}</div><div class="keys">${keys}</div>
+   <div class="cmp">${cmp}</div>
+   <div class="row"><a class="btn" href="${gm}" target="_blank" rel="noopener">Ride it in Google Maps</a><button class="btn" id="gpxBtn">GPX</button><button class="btn" id="followBtn">Follow me</button></div>
+  </div>
+  <details open><summary>Turn-by-turn (${dirs.length} steps)</summary><ol class="dir">${dirs.map((d,i)=>`<li data-n="${d.start}"><span class="ic">${i===0?'<span class="dot a"></span>':arrow(d.turn)}</span><span>${esc(d.act)}${d.name?(i===0?' on ':d.act==='Continue'?' on ':' onto ')+'<b>'+esc(d.name)+'</b>':''}<small><i class="sw" style="background:${GROUPS[d.g].k==='busy'?'#d6336c':GROUPS[d.g].color}"></i>${esc(GROUPS[d.g].label)}</small></span><span class="d">${fmtMi(d.d)}</span></li>`).join('')}<li><span class="ic"><span class="dot b"></span></span><span>Arrive at <b>${esc(st.to.label)}</b></span><span></span></li></ol></details>`;
+  $('result').querySelectorAll('li[data-n]').forEach(li=>li.onclick=()=>{const n=+li.dataset.n;map.setView([G.lat[n],G.lon[n]],17)});
+  $('gpxBtn').onclick=()=>gpx(bc);
+  $('followBtn').onclick=follow;
+}
+
+function googleLink(c){
+  const n=Math.min(8,Math.max(0,Math.floor(c.length/10))); const wp=[];
+  for(let i=1;i<=n;i++){const p=c[Math.round(i*(c.length-1)/(n+1))]; wp.push(p[0].toFixed(5)+','+p[1].toFixed(5))}
+  const f=c[0],t=c[c.length-1];
+  return `https://www.google.com/maps/dir/?api=1&travelmode=bicycling&origin=${f[0].toFixed(5)},${f[1].toFixed(5)}&destination=${t[0].toFixed(5)},${t[1].toFixed(5)}${wp.length?'&waypoints='+encodeURIComponent(wp.join('|')):''}`;
+}
+function gpx(c){
+  const x=`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Austin Bike Router" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(st.from.label)} to ${esc(st.to.label)}</name><trkseg>${c.map(p=>`<trkpt lat="${p[0].toFixed(6)}" lon="${p[1].toFixed(6)}"/>`).join('')}</trkseg></trk></gpx>`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([x],{type:'application/gpx+xml'})); a.download='austin-bike-route.gpx'; document.body.appendChild(a); a.click(); a.remove();
+}
+let watchId=null, meMk=null;
+function follow(){
+  const b=$('followBtn');
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;b.textContent='Follow me';return}
+  if(!navigator.geolocation){status('Location isn\'t available in this browser.');return}
+  b.textContent='Stop following';
+  watchId=navigator.geolocation.watchPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];
+    if(!meMk) meMk=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(map); else meMk.setLatLng(ll);
+    map.setView(ll,Math.max(map.getZoom(),17));},()=>status('Couldn\'t get your location — check location permission.'),{enableHighAccuracy:true});
+}
+
+/* ---------------- Places ---------------- */
+function setPoint(which,lat,lon,label){
+  st[which]={lat,lon,label}; $(which).value=label;
+  if(mk[which]) mk[which].setLatLng([lat,lon]); else{
+    mk[which]=L.marker([lat,lon],{icon:icon(which==='from'?'#0b7a3e':'#d6336c'),draggable:true}).addTo(map);
+    mk[which].on('dragend',ev=>{const p=ev.target.getLatLng();setPoint(which,p.lat,p.lng,'Dropped pin');route()});
+  }
+  $('goBtn').disabled=!(st.from&&st.to);
+  if(st.from&&st.to) route(); else map.panTo([lat,lon]);
+}
+function wireSearch(which){
+  const inp=$(which), box=$(which+'S'); let timer, items=[], act=-1;
+  const show=()=>{box.innerHTML=items.map((it,i)=>`<div data-i="${i}" class="${i===act?'act':''}">${esc(it.title)}<small>${esc(it.sub)}</small></div>`).join('');box.style.display=items.length?'block':'none'};
+  const choose=i=>{const it=items[i]; if(!it) return; box.style.display='none'; setPoint(which,it.lat,it.lon,it.title)};
+  inp.addEventListener('input',()=>{clearTimeout(timer); const q=inp.value.trim(); if(q.length<3){items=[];show();return}
+    timer=setTimeout(async()=>{try{
+      const r=await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${AUSTIN[0]}&lon=${AUSTIN[1]}&limit=6&bbox=-98.15,29.95,-97.35,30.65`);
+      const j=await r.json();
+      items=(j.features||[]).map(f=>{const p=f.properties;const street=[p.housenumber,p.street].filter(Boolean).join(' ');
+        return{lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],title:p.name||street||q,sub:[p.name?street:'',p.district||p.locality,p.city,p.postcode].filter(Boolean).join(', ')}});
+      act=-1; show();
+    }catch(e){}},300)});
+  inp.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){act=Math.min(items.length-1,act+1);show();e.preventDefault()}else if(e.key==='ArrowUp'){act=Math.max(0,act-1);show();e.preventDefault()}else if(e.key==='Enter'){choose(act<0?0:act);e.preventDefault()}else if(e.key==='Escape'){box.style.display='none'}});
+  box.addEventListener('mousedown',e=>{const d=e.target.closest('[data-i]'); if(d){e.preventDefault();choose(+d.dataset.i)}});
+  inp.addEventListener('blur',()=>setTimeout(()=>box.style.display='none',150));
+  inp.addEventListener('focus',()=>{st.pick=which});
+}
+wireSearch('from'); wireSearch('to');
+
+map.on('click',e=>{
+  const which=!st.from?'from':!st.to?'to':st.pick;
+  if(!which){hint('Drag the pins to adjust, or tap a search box first to move that point');setTimeout(()=>hint(),2500);return}
+  setPoint(which,e.latlng.lat,e.latlng.lng,'Dropped pin'); st.pick=null; document.activeElement&&document.activeElement.blur();
+});
+$('locBtn').onclick=()=>{
+  if(!navigator.geolocation){status('Location isn\'t available here — tap the map instead.');return}
+  status('Finding you…',1);
+  navigator.geolocation.getCurrentPosition(p=>setPoint('from',p.coords.latitude,p.coords.longitude,'My location'),()=>status('Couldn\'t get your location — tap the map to set a start.'),{enableHighAccuracy:true,timeout:10000});
+};
+$('swapBtn').onclick=()=>{if(!st.from||!st.to) return; const a=st.from,b=st.to; st.from=null;st.to=null; mk.from.setLatLng([b.lat,b.lon]); mk.to.setLatLng([a.lat,a.lon]); st.from=b; st.to=a; $('from').value=b.label; $('to').value=a.label; route()};
+$('goBtn').onclick=route;
+$('head').onclick=()=>{if(innerWidth<760)$('panel').classList.toggle('collapsed')};
+
+/* ---------------- Preferences UI ---------------- */
+function savePrefs(){try{localStorage.setItem('abr-prefs',JSON.stringify({p:prefs,t:tol,c:useComfort}))}catch(e){}}
+let rr; const reroute=()=>{clearTimeout(rr); rr=setTimeout(()=>{if(st.route&&st.from&&st.to) route()},250)};
+function renderPrefs(){
+  $('prefs').innerHTML=GROUPS.map((g,i)=>`<div class="pref"><span class="lab"><i class="sw" style="background:${g.color}"></i>${esc(g.label)}</span><span class="seg" data-g="${i}">${LEVELS.map((l,j)=>`<button data-l="${j}" class="${prefs[i]===j?'on':''}">${l}</button>`).join('')}</span></div>`).join('');
+}
+$('prefs').addEventListener('click',e=>{const b=e.target.closest('button[data-l]'); if(!b) return; const gi=+b.parentNode.dataset.g; prefs[gi]=+b.dataset.l; renderPrefs(); savePrefs(); drawNetwork(); reroute()});
+$('tol').value=tol; $('useComfort').checked=useComfort;
+$('tol').oninput=e=>{tol=+e.target.value;savePrefs();reroute()};
+$('useComfort').onchange=e=>{useComfort=e.target.checked;savePrefs();reroute()};
+$('showNet').onchange=drawNetwork;
+renderPrefs();
+
+/* ---------------- Boot ---------------- */
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+(async()=>{
+  try{
+    const feats=await loadFacilities(); st.fac=feats; st.facIdx=indexFacilities(feats);
+    drawNetwork();
+    status(`${feats.length.toLocaleString()} City bike segments loaded. Search or tap the map to set your start.`);
+    if(st.from&&st.to) route();
+  }catch(e){console.error(e);status('Couldn\'t reach the City of Austin bike data. Check your connection and reload.')}
+})();
+}
+</script>
+</body>
+</html>
